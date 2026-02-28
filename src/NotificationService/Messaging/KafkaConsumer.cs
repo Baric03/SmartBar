@@ -13,6 +13,10 @@ using Microsoft.Extensions.Logging;
 
 namespace NotificationService.Messaging
 {
+    /// <summary>
+    /// Background worker that consumes multiple event types from Kafka.
+    /// It captures both "order-events" and "drink-ready-events" to maintain a unified audit log.
+    /// </summary>
     public class KafkaConsumer : BackgroundService
     {
         private readonly IConfiguration _configuration;
@@ -26,6 +30,9 @@ namespace NotificationService.Messaging
             _serviceProvider = serviceProvider;
         }
 
+        /// <summary>
+        /// Main execution loop. Subscribes to multiple topics and routes messages to specific handlers based on the topic name.
+        /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";

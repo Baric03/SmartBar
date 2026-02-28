@@ -7,6 +7,10 @@ using System;
 
 namespace BarService.Controllers
 {
+    /// <summary>
+    /// Controller for managing bar operations and drink preparation tasks.
+    /// Tracks which drinks need to be prepared and notifies of their completion.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class BarController : ControllerBase
@@ -20,6 +24,10 @@ namespace BarService.Controllers
             _kafkaProducer = kafkaProducer;
         }
 
+        /// <summary>
+        /// Retrieves all current drink preparation tasks.
+        /// </summary>
+        /// <returns>A list of drink tasks.</returns>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<DrinkTask>>> GetAllDrinkTasks()
         {
@@ -69,6 +77,11 @@ namespace BarService.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Marks a specific drink task as ready and publishes a completion event to Kafka.
+        /// </summary>
+        /// <param name="id">The GUID of the drink task.</param>
+        /// <returns>The updated drink task.</returns>
         [HttpPut("{id}/mark-ready")]
         public async Task<IActionResult> MarkAsReady(Guid id)
         {

@@ -7,6 +7,10 @@ using System;
 
 namespace NotificationService.Controllers
 {
+    /// <summary>
+    /// Controller for viewing system notification logs.
+    /// Provides access to events captured from Kafka (orders, preparation status).
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class NotificationController : ControllerBase
@@ -18,6 +22,10 @@ namespace NotificationService.Controllers
             _notificationService = notificationService;
         }
 
+        /// <summary>
+        /// Retrieves all logged notifications ordered by time.
+        /// </summary>
+        /// <returns>A list of logs.</returns>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Log>>> GetAllLogs()
         {

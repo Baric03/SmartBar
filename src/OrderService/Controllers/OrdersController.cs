@@ -5,6 +5,10 @@ using InventoryService.Protos;
 
 namespace OrderService.Controllers
 {
+    /// <summary>
+    /// Controller for managing bar orders.
+    /// Handles order creation, including stock verification via gRPC and event publishing via Kafka.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class OrdersController : ControllerBase
@@ -20,6 +24,10 @@ namespace OrderService.Controllers
             _kafkaProducer = kafkaProducer;
         }
 
+        /// <summary>
+        /// Retrieves all orders from the database.
+        /// </summary>
+        /// <returns>A list of all orders.</returns>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
         {
@@ -27,6 +35,11 @@ namespace OrderService.Controllers
             return Ok(orders);
         }
 
+        /// <summary>
+        /// Retrieves a specific order by its unique identifier.
+        /// </summary>
+        /// <param name="id">The GUID of the order.</param>
+        /// <returns>The requested order or 404 if not found.</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<Order>> GetOrder(Guid id)
         {
@@ -40,6 +53,13 @@ namespace OrderService.Controllers
             return Ok(order);
         }
 
+        /// <summary>
+        /// Creates a new order. 
+        /// Performs stock verification and deduction via gRPC with InventoryService,
+        /// then publishes an OrderCreatedEvent to Kafka.
+        /// </summary>
+        /// <param name="order">The order details.</param>
+        /// <returns>The created order.</returns>
         [HttpPost]
         public async Task<ActionResult<Order>> CreateOrder(Order order)
         {

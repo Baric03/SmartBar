@@ -8,6 +8,10 @@ using OrderService.Models;
 
 namespace OrderService.Core.Services
 {
+    /// <summary>
+    /// Service for managing orders in the database.
+    /// Handles standard CRUD operations for the Order entity.
+    /// </summary>
     public class OrderManagementService : IOrderService
     {
         private readonly OrderDbContext _context;
@@ -17,6 +21,9 @@ namespace OrderService.Core.Services
             _context = context;
         }
 
+        /// <summary>
+        /// Retrieves all orders from the database.
+        /// </summary>
         public async Task<IEnumerable<Order>> GetAllOrdersAsync()
         {
             return await _context.Orders.ToListAsync();
@@ -27,6 +34,9 @@ namespace OrderService.Core.Services
             return await _context.Orders.FindAsync(id);
         }
 
+        /// <summary>
+        /// Creates a new order and persists it to the database.
+        /// </summary>
         public async Task<Order> CreateOrderAsync(Order order)
         {
             _context.Orders.Add(order);

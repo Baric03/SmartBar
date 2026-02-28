@@ -8,6 +8,10 @@ using InventoryService.Models;
 
 namespace InventoryService.Core.Services
 {
+    /// <summary>
+    /// Service for managing raw material inventory.
+    /// Includes functionality for checking stock levels and deducting quantities.
+    /// </summary>
     public class InventoryManagementService : IInventoryService
     {
         private readonly InventoryDbContext _context;
@@ -55,6 +59,9 @@ namespace InventoryService.Core.Services
             }
         }
 
+        /// <summary>
+        /// Checks if there is enough of a specific ingredient available.
+        /// </summary>
         public async Task<bool> HasEnoughStockAsync(string ingredient, int requiredQuantity)
         {
             var stock = await GetStockByIngredientAsync(ingredient);
@@ -65,6 +72,9 @@ namespace InventoryService.Core.Services
             return stock.Quantity >= requiredQuantity;
         }
 
+        /// <summary>
+        /// Deducts a specified amount from an ingredient's stock level.
+        /// </summary>
         public async Task<bool> DeductStockAsync(string ingredient, int amount)
         {
             var stock = await GetStockByIngredientAsync(ingredient);

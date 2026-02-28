@@ -13,6 +13,10 @@ using Microsoft.Extensions.Logging;
 
 namespace BarService.Messaging
 {
+    /// <summary>
+    /// Background worker that consumes order events from Kafka.
+    /// When a new order is received, it creates corresponding drink preparation tasks.
+    /// </summary>
     public class KafkaConsumer : BackgroundService
     {
         private readonly IConfiguration _configuration;
@@ -26,6 +30,10 @@ namespace BarService.Messaging
             _serviceProvider = serviceProvider;
         }
 
+        /// <summary>
+        /// Main execution loop for the Kafka consumer.
+        /// Listens for "order-events" and processes them as they arrive.
+        /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";

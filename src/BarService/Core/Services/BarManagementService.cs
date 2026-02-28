@@ -8,6 +8,10 @@ using BarService.Models;
 
 namespace BarService.Core.Services
 {
+    /// <summary>
+    /// Service for managing drink tasks in the bar.
+    /// Tracks items that need preparation and their current status.
+    /// </summary>
     public class BarManagementService : IBarService
     {
         private readonly BarDbContext _context;
@@ -34,6 +38,9 @@ namespace BarService.Core.Services
             return drinkTask;
         }
 
+        /// <summary>
+        /// Updates an existing drink task (e.g., setting it as ready).
+        /// </summary>
         public async Task UpdateDrinkTaskAsync(DrinkTask drinkTask)
         {
             _context.Entry(drinkTask).State = EntityState.Modified;
