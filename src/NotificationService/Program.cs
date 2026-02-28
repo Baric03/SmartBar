@@ -17,6 +17,12 @@ builder.Services.AddScoped<INotificationService, NotificationManagementService>(
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<NotificationDbContext>();
+    DbSeeder.Seed(context);
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
