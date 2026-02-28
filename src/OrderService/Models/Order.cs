@@ -6,6 +6,7 @@ namespace OrderService.Models
     public class Order
     {
         [Key]
+        [System.Text.Json.Serialization.JsonIgnore]
         public Guid Id { get; set; }
 
         [Required]
@@ -14,7 +15,7 @@ namespace OrderService.Models
         [Required]
         public string Items { get; set; } = string.Empty;
 
-        [Required]
+        [System.Text.Json.Serialization.JsonIgnore]
         public string Status { get; set; } = "Pending";
     }
 }

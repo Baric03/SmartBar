@@ -14,5 +14,6 @@ namespace InventoryService.Core.Interfaces
         Task UpdateStockAsync(Stock stock);
         Task DeleteStockAsync(Guid id);
         Task<bool> HasEnoughStockAsync(string ingredient, int requiredQuantity);
+        Task<bool> DeductStockAsync(string ingredient, int amount);
     }
 }

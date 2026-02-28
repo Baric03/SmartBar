@@ -11,7 +11,7 @@ namespace NotificationService.Data
         {
             context.Database.Migrate();
 
-            if (!context.Logs.Any())
+            /*if (!context.Logs.Any())
             {
                 var orderId1 = Guid.NewGuid();
                 var orderId2 = Guid.NewGuid();
@@ -23,7 +23,7 @@ namespace NotificationService.Data
                 );
 
                 context.SaveChanges();
-            }
+            }*/
         }
     }
 }

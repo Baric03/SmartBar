@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using OrderService.Core.Interfaces;
 using OrderService.Models;
+using InventoryService.Protos;
 
 namespace OrderService.Controllers
 {
@@ -9,10 +10,14 @@ namespace OrderService.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly InventoryGrpcConfig.InventoryGrpcConfigClient _inventoryClient;
+        private readonly OrderService.Messaging.IKafkaProducer _kafkaProducer;
 
-        public OrdersController(IOrderService orderService)
+        public OrdersController(IOrderService orderService, InventoryGrpcConfig.InventoryGrpcConfigClient inventoryClient, OrderService.Messaging.IKafkaProducer kafkaProducer)
         {
             _orderService = orderService;
+            _inventoryClient = inventoryClient;
+            _kafkaProducer = kafkaProducer;
         }
 
         [HttpGet]
@@ -38,7 +43,37 @@ namespace OrderService.Controllers
         [HttpPost]
         public async Task<ActionResult<Order>> CreateOrder(Order order)
         {
+            // Simple mockup logic: items are comma-separated string, e.g., "Espresso, Milk"
+            var items = order.Items.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            
+            foreach (var item in items)
+            {
+                var request = new CheckStockRequest { Ingredient = item, Quantity = 1 }; // Assuming 1 quantity per item for now
+                var response = await _inventoryClient.CheckStockAsync(request);
+                
+                if (!response.HasEnoughStock)
+                {
+                    return BadRequest($"Not enough stock for: {item}");
+                }
+            }
+
+            // Second pass: Deduct stock since we verified we have enough
+            foreach (var item in items)
+            {
+                var request = new CheckStockRequest { Ingredient = item, Quantity = 1 };
+                await _inventoryClient.DeductStockAsync(request);
+            }
+
             var createdOrder = await _orderService.CreateOrderAsync(order);
+
+            var orderEvent = new OrderService.Events.OrderCreatedEvent
+            {
+                OrderId = createdOrder.Id,
+                TableNum = createdOrder.TableNum,
+                Items = createdOrder.Items
+            };
+
+            await _kafkaProducer.ProduceAsync("order-events", orderEvent.OrderId.ToString(), orderEvent);
 
             return CreatedAtAction(nameof(GetOrder), new { id = createdOrder.Id }, createdOrder);
         }

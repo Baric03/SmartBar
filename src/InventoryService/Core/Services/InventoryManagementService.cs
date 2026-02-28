@@ -64,5 +64,19 @@ namespace InventoryService.Core.Services
             }
             return stock.Quantity >= requiredQuantity;
         }
+
+        public async Task<bool> DeductStockAsync(string ingredient, int amount)
+        {
+            var stock = await GetStockByIngredientAsync(ingredient);
+            if (stock == null || stock.Quantity < amount)
+            {
+                return false;
+            }
+
+            stock.Quantity -= amount;
+            await UpdateStockAsync(stock);
+            
+            return true;
+        }
     }
 }
