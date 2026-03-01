@@ -13,12 +13,14 @@ namespace BarService.UnitTests
     public class BarControllerTests
     {
         private readonly Mock<IBarService> _mockService;
+        private readonly Mock<BarService.Messaging.IKafkaProducer> _mockKafkaProducer;
         private readonly BarController _controller;
 
         public BarControllerTests()
         {
             _mockService = new Mock<IBarService>();
-            _controller = new BarController(_mockService.Object);
+            _mockKafkaProducer = new Mock<BarService.Messaging.IKafkaProducer>();
+            _controller = new BarController(_mockService.Object, _mockKafkaProducer.Object);
         }
 
         [Fact]
