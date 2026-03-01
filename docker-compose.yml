@@ -114,9 +114,43 @@ services:
     networks:
       - smartbar-network
 
+  # --- Monitoring: Prometheus & Grafana ---
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: smartbar-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - order-service
+      - inventory-service
+      - bar-service
+      - notification-service
+    networks:
+      - smartbar-network
+
+  grafana:
+    image: grafana/grafana:10.3.3
+    container_name: smartbar-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=smartbar
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - smartbar-network
+
 networks:
   smartbar-network:
     driver: bridge
 
 volumes:
   db-data:
+  grafana-data:

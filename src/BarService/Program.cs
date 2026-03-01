@@ -2,6 +2,10 @@ using BarService.Core.Interfaces;
 using BarService.Core.Services;
 using BarService.Data;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Logs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +23,28 @@ builder.Services.AddScoped<IBarService, BarManagementService>();
 builder.Services.AddSingleton<BarService.Messaging.IKafkaProducer, BarService.Messaging.KafkaProducer>();
 builder.Services.AddHostedService<BarService.Messaging.KafkaConsumer>();
 
+// --- OpenTelemetry Configuration ---
+var serviceName = "BarService";
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(serviceName))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddProcessInstrumentation()
+        .AddPrometheusExporter());
+
+builder.Logging.AddOpenTelemetry(logging =>
+{
+    logging.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(serviceName));
+    logging.AddConsoleExporter();
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -26,6 +52,9 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<BarDbContext>();
     DbSeeder.Seed(context);
 }
+
+// Expose Prometheus metrics endpoint at /metrics
+app.MapPrometheusScrapingEndpoint();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
