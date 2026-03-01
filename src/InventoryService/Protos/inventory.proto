@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option csharp_namespace = "InventoryService.Protos";
+
+package inventory;
+
+service InventoryGrpcConfig {
+  rpc CheckStock (CheckStockRequest) returns (CheckStockResponse);
+  rpc DeductStock (CheckStockRequest) returns (CheckStockResponse);
+}
+
+message CheckStockRequest {
+  string ingredient = 1;
+  int32 quantity = 2;
+}
+
+message CheckStockResponse {
+  bool hasEnoughStock = 1;
+}

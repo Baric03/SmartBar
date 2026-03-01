@@ -11,7 +11,7 @@ namespace BarService.Data
         {
             context.Database.Migrate();
 
-            if (!context.DrinkTasks.Any())
+            /*if (!context.DrinkTasks.Any())
             {
                 context.DrinkTasks.AddRange(
                     new DrinkTask { Id = Guid.NewGuid(), OrderId = Guid.NewGuid(), Name = "Double Espresso", IsReady = false },
@@ -20,7 +20,7 @@ namespace BarService.Data
                 );
 
                 context.SaveChanges();
-            }
+            }*/
         }
     }
 }

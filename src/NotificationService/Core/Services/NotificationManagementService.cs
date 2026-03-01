@@ -9,6 +9,10 @@ using NotificationService.Models;
 
 namespace NotificationService.Core.Services
 {
+    /// <summary>
+    /// Service for managing notification logs.
+    /// Stores events captured from the system for auditing and display.
+    /// </summary>
     public class NotificationManagementService : INotificationService
     {
         private readonly NotificationDbContext _context;
@@ -36,6 +40,10 @@ namespace NotificationService.Core.Services
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Creates a new notification log entry.
+        /// Automatically sets the SentAt timestamp to the current UTC time.
+        /// </summary>
         public async Task<Log> CreateLogAsync(Log log)
         {
             log.SentAt = DateTime.UtcNow;

@@ -19,6 +19,18 @@ builder.Services.AddSwaggerGen();
 
 // Register Services
 builder.Services.AddScoped<IOrderService, OrderManagementService>();
+builder.Services.AddSingleton<OrderService.Messaging.IKafkaProducer, OrderService.Messaging.KafkaProducer>();
+
+builder.Services.AddGrpcClient<InventoryService.Protos.InventoryGrpcConfig.InventoryGrpcConfigClient>(o =>
+{
+    o.Address = new Uri(builder.Configuration["GrpcUrls:InventoryService"] ?? "https://localhost:7042");
+}).ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler();
+    handler.ServerCertificateCustomValidationCallback = 
+        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+    return handler;
+});
 
 var app = builder.Build();
 
@@ -36,6 +48,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
+    // Swagger UI is available at: https://localhost:7224/swagger
     app.UseSwaggerUI();
 }
 

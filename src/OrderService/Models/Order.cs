@@ -14,7 +14,6 @@ namespace OrderService.Models
         [Required]
         public string Items { get; set; } = string.Empty;
 
-        [Required]
         public string Status { get; set; } = "Pending";
     }
 }
