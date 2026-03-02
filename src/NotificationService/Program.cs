@@ -34,7 +34,7 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddConsoleExporter())
+        .AddOtlpExporter())
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
@@ -45,7 +45,7 @@ builder.Services.AddOpenTelemetry()
 builder.Logging.AddOpenTelemetry(logging =>
 {
     logging.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(serviceName));
-    logging.AddConsoleExporter();
+    logging.AddOtlpExporter();
 });
 
 var app = builder.Build();

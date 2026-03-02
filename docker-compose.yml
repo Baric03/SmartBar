@@ -26,6 +26,11 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
     networks:
       - smartbar-network
 
@@ -40,6 +45,11 @@ services:
       - "5455:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - smartbar-network
 
@@ -59,8 +69,10 @@ services:
       - Kestrel__Endpoints__http__Protocols=Http1AndHttp2
       - Kestrel__Endpoints__grpc__Url=http://+:8081
       - Kestrel__Endpoints__grpc__Protocols=Http2
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
-      - smartbar-db
+      smartbar-db:
+        condition: service_healthy
     networks:
       - smartbar-network
 
@@ -76,9 +88,14 @@ services:
       - GrpcUrls__InventoryService=http://smartbar-inventory-service:8081
       - ASPNETCORE_ENVIRONMENT=Development
       - Kafka__BootstrapServers=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
-      - smartbar-db
-      - inventory-service
+      smartbar-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
     networks:
       - smartbar-network
 
@@ -93,8 +110,12 @@ services:
       - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=BarDb;Username=admin;Password=barpassword123
       - ASPNETCORE_ENVIRONMENT=Development
       - Kafka__BootstrapServers=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
-      - smartbar-db
+      smartbar-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - smartbar-network
 
@@ -109,8 +130,12 @@ services:
       - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=NotificationDb;Username=admin;Password=barpassword123
       - ASPNETCORE_ENVIRONMENT=Development
       - Kafka__BootstrapServers=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     depends_on:
-      - smartbar-db
+      smartbar-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - smartbar-network
 
@@ -144,6 +169,18 @@ services:
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+    networks:
+      - smartbar-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.55
+    container_name: smartbar-jaeger
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
     networks:
       - smartbar-network
 
