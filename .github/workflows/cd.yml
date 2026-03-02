@@ -1,0 +1,17 @@
+name: Render CD Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-to-render:
+    name: Trigger Render Deploy Hook
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger Web Service Deployment
+        run: |
+          # The RENDER_DEPLOY_HOOK_URL secret must be defined in your GitHub Repo Secrets.
+          # It should look like: https://api.render.com/deploy/srv-...
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
