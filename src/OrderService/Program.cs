@@ -20,6 +20,7 @@ builder.Services.AddDbContext<OrderDbContext>(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 // Register Services
 builder.Services.AddScoped<IOrderService, OrderManagementService>();
@@ -83,5 +84,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.MapHealthChecks("/health");
 
 app.Run();
