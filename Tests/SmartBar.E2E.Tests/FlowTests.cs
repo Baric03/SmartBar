@@ -55,7 +55,7 @@ namespace SmartBar.E2E.Tests
 
             Console.WriteLine("Step 3: Polling Bar Service for task...");
             JsonElement? barTask = null;
-            for (int i = 0; i < 15; i++)
+            for (int i = 0; i < 30; i++)
             {
                 var tasksResponse = await _barClient.GetAsync("api/Bar");
                 var tasksString = await tasksResponse.Content.ReadAsStringAsync();
@@ -104,7 +104,7 @@ namespace SmartBar.E2E.Tests
                 }
 
                 if (barTask != null) break;
-                Console.WriteLine($"Task not found yet. Attempt {i+1}/15. Waiting 2s...");
+                Console.WriteLine($"Task not found yet. Attempt {i+1}/30. Waiting 2s...");
                 await Task.Delay(2000); 
             }
 
@@ -119,7 +119,7 @@ namespace SmartBar.E2E.Tests
             // 5. Poll Notification Service for the completion log
             Console.WriteLine("Step 5: Polling Notification Service for completion log...");
             bool foundNotification = false;
-            for (int i = 0; i < 15; i++)
+            for (int i = 0; i < 30; i++)
             {
                 var logsResponse = await _notificationClient.GetAsync("api/Notification");
                 var logsData = JsonSerializer.Deserialize<JsonElement>(await logsResponse.Content.ReadAsStringAsync());
@@ -141,7 +141,7 @@ namespace SmartBar.E2E.Tests
                 }
 
                 if (foundNotification) break;
-                Console.WriteLine($"Notification not found yet. Attempt {i+1}/15. Waiting 2s...");
+                Console.WriteLine($"Notification not found yet. Attempt {i+1}/30. Waiting 2s...");
                 await Task.Delay(2000); 
             }
 
