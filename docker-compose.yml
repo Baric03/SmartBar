@@ -182,6 +182,32 @@ services:
     networks:
       - smartbar-network
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+    container_name: smartbar-api-gateway
+    ports:
+      - "8000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      order-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      bar-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    networks:
+      - smartbar-network
+
   # --- Monitoring: Prometheus & Grafana ---
   prometheus:
     image: prom/prometheus:v2.51.0
