@@ -34,6 +34,23 @@ services:
     networks:
       - smartbar-network
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: smartbar-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' && \
+        cub kafka-ready -b kafka:9092 1 30 && \
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic order-events && \
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic drink-ready-events && \
+        echo 'Topics created successfully.'
+      "
+    networks:
+      - smartbar-network
+
   # --- Database: PostgreSQL ---
   smartbar-db:
     image: postgres:15
@@ -104,6 +121,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
       inventory-service:
         condition: service_healthy
     networks:
@@ -131,6 +150,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - smartbar-network
 
@@ -156,6 +177,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       - smartbar-network
 
