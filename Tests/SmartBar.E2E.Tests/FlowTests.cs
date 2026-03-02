@@ -19,10 +19,10 @@ namespace SmartBar.E2E.Tests
         public FlowTests()
         {
             // Note: These URLs are based on the ports defined in docker-compose.yml
-            _orderClient = new HttpClient { BaseAddress = new Uri("http://localhost:7224/") };
-            _barClient = new HttpClient { BaseAddress = new Uri("http://localhost:7026/") };
-            _notificationClient = new HttpClient { BaseAddress = new Uri("http://localhost:7081/") };
-            _inventoryClient = new HttpClient { BaseAddress = new Uri("http://localhost:7042/") };
+            _orderClient = new HttpClient { BaseAddress = new Uri("http://localhost:8000/") };
+            _barClient = new HttpClient { BaseAddress = new Uri("http://localhost:8000/") };
+            _notificationClient = new HttpClient { BaseAddress = new Uri("http://localhost:8000/") };
+            _inventoryClient = new HttpClient { BaseAddress = new Uri("http://localhost:8000/") };
         }
 
         [Fact]
