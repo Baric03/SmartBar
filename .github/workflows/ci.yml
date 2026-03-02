@@ -43,6 +43,16 @@ jobs:
           dotnet test Tests/BarService.UnitTests/BarService.UnitTests.csproj --configuration Release --no-build --logger "trx;LogFileName=bar-tests.trx" --results-directory ./TestResults
           dotnet test Tests/NotificationService.UnitTests/NotificationService.UnitTests.csproj --configuration Release --no-build --logger "trx;LogFileName=notification-tests.trx" --results-directory ./TestResults
 
+      - name: Start Services for E2E Tests
+        run: docker compose up -d --wait
+
+      - name: Run E2E Tests
+        run: dotnet test Tests/SmartBar.E2E.Tests/SmartBar.E2E.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=e2e-tests.trx" --results-directory ./TestResults
+
+      - name: Tear Down Services
+        if: always()
+        run: docker compose down -v
+
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -105,7 +115,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"Baric03_SmartBar" /o:"baric03" /d:sonar.token="$env:SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io"
+          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"Baric03_SmartBar" /o:"baric03" /d:sonar.token="$env:SONAR_TOKEN" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.coverage.exclusions="**/Program.cs" /d:sonar.cpd.exclusions="**/Program.cs"
           dotnet build SmartBar.sln --configuration Release
           ${{ runner.temp }}\scanner\dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
 

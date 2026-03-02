@@ -2,6 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using OrderService.Core.Interfaces;
 using OrderService.Core.Services;
 using OrderService.Data;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Logs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +20,7 @@ builder.Services.AddDbContext<OrderDbContext>(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 // Register Services
 builder.Services.AddScoped<IOrderService, OrderManagementService>();
@@ -32,6 +37,29 @@ builder.Services.AddGrpcClient<InventoryService.Protos.InventoryGrpcConfig.Inven
     return handler;
 });
 
+// --- OpenTelemetry Configuration ---
+var serviceName = "OrderService";
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(serviceName))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddGrpcClientInstrumentation()
+        .AddOtlpExporter())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddProcessInstrumentation()
+        .AddPrometheusExporter());
+
+builder.Logging.AddOpenTelemetry(logging =>
+{
+    logging.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService(serviceName));
+    logging.AddOtlpExporter();
+});
+
 var app = builder.Build();
 
 // Migrate and Seed Database
@@ -43,6 +71,9 @@ using (var scope = app.Services.CreateScope())
 
 app.MapControllers();
 
+// Expose Prometheus metrics endpoint at /metrics
+app.MapPrometheusScrapingEndpoint();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -53,5 +84,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.MapHealthChecks("/health");
 
 app.Run();
