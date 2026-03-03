@@ -75,33 +75,39 @@ namespace BarService.UnitTests
         }
 
         [Fact]
-        public async Task UpdateDrinkTask_ValidTask_ReturnsNoContent()
+        public async Task MarkAsReady_ExistingTask_ReturnsOkResult_WithUpdatedTask()
         {
             // Arrange
             var taskId = Guid.NewGuid();
-            var drinkTask = new DrinkTask { Id = taskId, OrderId = Guid.NewGuid(), Name = "Latte", IsReady = true };
+            var orderId = Guid.NewGuid();
+            var drinkTask = new DrinkTask { Id = taskId, OrderId = orderId, Name = "Latte", IsReady = false };
             _mockService.Setup(s => s.GetDrinkTaskByIdAsync(taskId)).ReturnsAsync(drinkTask);
             _mockService.Setup(s => s.UpdateDrinkTaskAsync(It.IsAny<DrinkTask>())).Returns(Task.CompletedTask);
+            _mockKafkaProducer.Setup(p => p.ProduceAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<BarService.Events.DrinkReadyEvent>()))
+                              .Returns(Task.CompletedTask);
 
             // Act
-            var result = await _controller.UpdateDrinkTask(taskId, drinkTask);
+            var result = await _controller.MarkAsReady(taskId);
 
             // Assert
-            Assert.IsType<NoContentResult>(result);
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var returnTask = Assert.IsType<DrinkTask>(okResult.Value);
+            Assert.True(returnTask.IsReady);
+            Assert.Equal(taskId, returnTask.Id);
         }
 
         [Fact]
-        public async Task UpdateDrinkTask_IdMismatch_ReturnsBadRequest()
+        public async Task MarkAsReady_NonExistingTask_ReturnsNotFoundResult()
         {
             // Arrange
             var taskId = Guid.NewGuid();
-            var drinkTask = new DrinkTask { Id = Guid.NewGuid(), OrderId = Guid.NewGuid(), Name = "Latte", IsReady = true };
+            _mockService.Setup(s => s.GetDrinkTaskByIdAsync(taskId)).ReturnsAsync((DrinkTask?)null);
 
             // Act
-            var result = await _controller.UpdateDrinkTask(taskId, drinkTask);
+            var result = await _controller.MarkAsReady(taskId);
 
             // Assert
-            Assert.IsType<BadRequestResult>(result);
+            Assert.IsType<NotFoundResult>(result);
         }
     }
 }

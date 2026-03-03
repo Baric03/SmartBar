@@ -11,16 +11,6 @@ namespace BarService.Data
         {
             context.Database.Migrate();
 
-            /*if (!context.DrinkTasks.Any())
-            {
-                context.DrinkTasks.AddRange(
-                    new DrinkTask { Id = Guid.NewGuid(), OrderId = Guid.NewGuid(), Name = "Double Espresso", IsReady = false },
-                    new DrinkTask { Id = Guid.NewGuid(), OrderId = Guid.NewGuid(), Name = "Cappuccino", IsReady = false },
-                    new DrinkTask { Id = Guid.NewGuid(), OrderId = Guid.NewGuid(), Name = "Americano", IsReady = true }
-                );
-
-                context.SaveChanges();
-            }*/
         }
     }
 }

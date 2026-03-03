@@ -82,6 +82,7 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=InventoryDb;Username=admin;Password=barpassword123
       - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
       - Kestrel__Endpoints__http__Url=http://+:8080
       - Kestrel__Endpoints__http__Protocols=Http1AndHttp2
       - Kestrel__Endpoints__grpc__Url=http://+:8081
@@ -109,6 +110,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=OrderDb;Username=admin;Password=barpassword123
       - GrpcUrls__InventoryService=http://smartbar-inventory-service:8081
       - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
       - Kafka__BootstrapServers=kafka:9092
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     healthcheck:
@@ -138,6 +140,7 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=BarDb;Username=admin;Password=barpassword123
       - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
       - Kafka__BootstrapServers=kafka:9092
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     healthcheck:
@@ -165,6 +168,7 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=NotificationDb;Username=admin;Password=barpassword123
       - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
       - Kafka__BootstrapServers=kafka:9092
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
     healthcheck:

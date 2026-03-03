@@ -8,6 +8,7 @@ namespace BarService.Core.Interfaces
     public interface IBarService
     {
         Task<IEnumerable<DrinkTask>> GetAllDrinkTasksAsync();
+        Task<IEnumerable<DrinkTask>> GetDrinkTasksByOrderIdAsync(Guid orderId);
         Task<DrinkTask?> GetDrinkTaskByIdAsync(Guid id);
         Task<DrinkTask> CreateDrinkTaskAsync(DrinkTask drinkTask);
         Task UpdateDrinkTaskAsync(DrinkTask drinkTask);

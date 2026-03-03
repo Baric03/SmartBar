@@ -93,24 +93,5 @@ namespace NotificationService.UnitTests
             var returnLogs = Assert.IsAssignableFrom<IEnumerable<Log>>(okResult.Value);
             Assert.Equal(2, returnLogs.Count());
         }
-
-        [Fact]
-        public async Task CreateLog_ValidLog_ReturnsCreatedAtActionResult()
-        {
-            // Arrange
-            var newLog = new Log { OrderId = Guid.NewGuid(), Message = "New Log" };
-            var createdLog = new Log { Id = Guid.NewGuid(), OrderId = newLog.OrderId, Message = newLog.Message };
-            
-            _mockService.Setup(s => s.CreateLogAsync(newLog)).ReturnsAsync(createdLog);
-
-            // Act
-            var result = await _controller.CreateLog(newLog);
-
-            // Assert
-            var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result.Result);
-            var returnLog = Assert.IsType<Log>(createdAtActionResult.Value);
-            Assert.Equal(createdLog.Id, returnLog.Id);
-            Assert.Equal("GetLogById", createdAtActionResult.ActionName);
-        }
     }
 }
