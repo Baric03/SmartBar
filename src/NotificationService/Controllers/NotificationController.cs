@@ -9,7 +9,8 @@ namespace NotificationService.Controllers
 {
     /// <summary>
     /// Controller for viewing system notification logs.
-    /// Provides access to events captured from Kafka (orders, preparation status).
+    /// Provides read-only access to events captured from Kafka (order creation, drink ready).
+    /// Logs are created automatically by the Kafka consumer — no manual creation endpoint.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -33,6 +34,11 @@ namespace NotificationService.Controllers
             return Ok(logs);
         }
 
+        /// <summary>
+        /// Retrieves a specific notification log by its unique identifier.
+        /// </summary>
+        /// <param name="id">The GUID of the log entry.</param>
+        /// <returns>The log entry or 404 if not found.</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<Log>> GetLogById(Guid id)
         {
@@ -46,19 +52,16 @@ namespace NotificationService.Controllers
             return Ok(log);
         }
 
+        /// <summary>
+        /// Retrieves all notification logs for a specific order.
+        /// </summary>
+        /// <param name="orderId">The GUID of the order.</param>
+        /// <returns>A list of logs related to the order.</returns>
         [HttpGet("order/{orderId}")]
         public async Task<ActionResult<IEnumerable<Log>>> GetLogsByOrderId(Guid orderId)
         {
             var logs = await _notificationService.GetLogsByOrderIdAsync(orderId);
             return Ok(logs);
-        }
-
-        [HttpPost]
-        public async Task<ActionResult<Log>> CreateLog(Log log)
-        {
-            var createdLog = await _notificationService.CreateLogAsync(log);
-
-            return CreatedAtAction(nameof(GetLogById), new { id = createdLog.Id }, createdLog);
         }
     }
 }

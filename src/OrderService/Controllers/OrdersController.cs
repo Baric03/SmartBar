@@ -58,18 +58,18 @@ namespace OrderService.Controllers
         /// Performs stock verification and deduction via gRPC with InventoryService,
         /// then publishes an OrderCreatedEvent to Kafka.
         /// </summary>
-        /// <param name="order">The order details.</param>
+        /// <param name="request">The order request containing table number and items.</param>
         /// <returns>The created order.</returns>
         [HttpPost]
-        public async Task<ActionResult<Order>> CreateOrder(Order order)
+        public async Task<ActionResult<Order>> CreateOrder(CreateOrderRequest request)
         {
-            // Simple mockup logic: items are comma-separated string, e.g., "Espresso, Milk"
-            var items = order.Items.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            // Items are comma-separated string, e.g., "Espresso, Milk"
+            var items = request.Items.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             
             foreach (var item in items)
             {
-                var request = new CheckStockRequest { Ingredient = item, Quantity = 1 }; // Assuming 1 quantity per item for now
-                var response = await _inventoryClient.CheckStockAsync(request);
+                var stockRequest = new CheckStockRequest { Ingredient = item, Quantity = 1 };
+                var response = await _inventoryClient.CheckStockAsync(stockRequest);
                 
                 if (!response.HasEnoughStock)
                 {
@@ -80,9 +80,18 @@ namespace OrderService.Controllers
             // Second pass: Deduct stock since we verified we have enough
             foreach (var item in items)
             {
-                var request = new CheckStockRequest { Ingredient = item, Quantity = 1 };
-                await _inventoryClient.DeductStockAsync(request);
+                var stockRequest = new CheckStockRequest { Ingredient = item, Quantity = 1 };
+                await _inventoryClient.DeductStockAsync(stockRequest);
             }
+
+            // Map request DTO to Order entity
+            var order = new Order
+            {
+                Id = Guid.NewGuid(),
+                TableNum = request.TableNum,
+                Items = request.Items,
+                Status = "Pending"
+            };
 
             var createdOrder = await _orderService.CreateOrderAsync(order);
 

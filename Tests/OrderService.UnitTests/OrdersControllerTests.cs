@@ -84,7 +84,7 @@ namespace OrderService.UnitTests
         public async Task CreateOrder_ShouldReturnCreatedAtAction_WithCreatedOrder()
         {
             // Arrange
-            var newOrder = new Order { TableNum = 4, Items = "Juice" };
+            var request = new CreateOrderRequest { TableNum = 4, Items = "Juice" };
             var createdOrder = new Order { Id = Guid.NewGuid(), TableNum = 4, Items = "Juice", Status = "Pending" };
             
             _mockInventoryClient
@@ -105,13 +105,13 @@ namespace OrderService.UnitTests
                     () => new Grpc.Core.Metadata(),
                     () => { }));
 
-            _mockOrderService.Setup(s => s.CreateOrderAsync(newOrder)).ReturnsAsync(createdOrder);
+            _mockOrderService.Setup(s => s.CreateOrderAsync(It.IsAny<Order>())).ReturnsAsync(createdOrder);
             
             _mockKafkaProducer.Setup(p => p.ProduceAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<OrderService.Events.OrderCreatedEvent>()))
                               .Returns(Task.CompletedTask);
 
             // Act
-            var result = await _controller.CreateOrder(newOrder);
+            var result = await _controller.CreateOrder(request);
 
             // Assert
             var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result.Result);
@@ -127,7 +127,7 @@ namespace OrderService.UnitTests
         public async Task CreateOrder_ShouldReturnBadRequest_WhenNotEnoughStock()
         {
             // Arrange
-            var newOrder = new Order { TableNum = 4, Items = "Juice" };
+            var request = new CreateOrderRequest { TableNum = 4, Items = "Juice" };
             
             _mockInventoryClient
                 .Setup(c => c.CheckStockAsync(It.IsAny<InventoryService.Protos.CheckStockRequest>(), null, null, new System.Threading.CancellationToken()))
@@ -139,7 +139,7 @@ namespace OrderService.UnitTests
                     () => { }));
 
             // Act
-            var result = await _controller.CreateOrder(newOrder);
+            var result = await _controller.CreateOrder(request);
 
             // Assert
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);

@@ -9,7 +9,8 @@ namespace BarService.Controllers
 {
     /// <summary>
     /// Controller for managing bar operations and drink preparation tasks.
-    /// Tracks which drinks need to be prepared and notifies of their completion.
+    /// Provides read-only access to drink tasks and the ability to mark them as ready.
+    /// Drink tasks are created automatically via Kafka when new orders are placed.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -35,6 +36,11 @@ namespace BarService.Controllers
             return Ok(drinkTasks);
         }
 
+        /// <summary>
+        /// Retrieves a specific drink task by its unique identifier.
+        /// </summary>
+        /// <param name="id">The GUID of the drink task.</param>
+        /// <returns>The drink task or 404 if not found.</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<DrinkTask>> GetDrinkTaskById(Guid id)
         {
@@ -48,37 +54,9 @@ namespace BarService.Controllers
             return Ok(drinkTask);
         }
 
-        [HttpPost]
-        public async Task<ActionResult<DrinkTask>> CreateDrinkTask(DrinkTask drinkTask)
-        {
-            var createdDrinkTask = await _barService.CreateDrinkTaskAsync(drinkTask);
-
-            return CreatedAtAction(nameof(GetDrinkTaskById), new { id = createdDrinkTask.Id }, createdDrinkTask);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateDrinkTask(Guid id, DrinkTask drinkTask)
-        {
-            if (id != drinkTask.Id)
-            {
-                return BadRequest();
-            }
-
-            var existingDrinkTask = await _barService.GetDrinkTaskByIdAsync(id);
-            if (existingDrinkTask == null)
-            {
-                return NotFound();
-            }
-
-            await _barService.UpdateDrinkTaskAsync(drinkTask);
-
-            // TODO: Here we will later publish a message to Kafka if IsReady is set to true.
-
-            return NoContent();
-        }
-
         /// <summary>
         /// Marks a specific drink task as ready and publishes a completion event to Kafka.
+        /// This triggers a notification and updates the order status in OrderService.
         /// </summary>
         /// <param name="id">The GUID of the drink task.</param>
         /// <returns>The updated drink task.</returns>
@@ -94,31 +72,22 @@ namespace BarService.Controllers
             drinkTask.IsReady = true;
             await _barService.UpdateDrinkTaskAsync(drinkTask);
 
-            // Notify via Kafka
+            // Check if ALL drink tasks for this order are now ready
+            var allTasks = await _barService.GetDrinkTasksByOrderIdAsync(drinkTask.OrderId);
+            var allReady = allTasks.All(t => t.IsReady);
+
+            // Notify via Kafka — consumed by NotificationService and OrderService
             var readyEvent = new BarService.Events.DrinkReadyEvent
             {
                 DrinkTaskId = drinkTask.Id,
                 OrderId = drinkTask.OrderId,
-                DrinkName = drinkTask.Name
+                DrinkName = drinkTask.Name,
+                AllDrinksReady = allReady
             };
 
             await _kafkaProducer.ProduceAsync("drink-ready-events", drinkTask.Id.ToString(), readyEvent);
 
             return Ok(drinkTask);
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteDrinkTask(Guid id)
-        {
-            var existingDrinkTask = await _barService.GetDrinkTaskByIdAsync(id);
-            if (existingDrinkTask == null)
-            {
-                return NotFound();
-            }
-
-            await _barService.DeleteDrinkTaskAsync(id);
-
-            return NoContent();
         }
     }
 }

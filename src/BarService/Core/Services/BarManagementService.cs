@@ -26,6 +26,11 @@ namespace BarService.Core.Services
             return await _context.DrinkTasks.ToListAsync();
         }
 
+        public async Task<IEnumerable<DrinkTask>> GetDrinkTasksByOrderIdAsync(Guid orderId)
+        {
+            return await _context.DrinkTasks.Where(t => t.OrderId == orderId).ToListAsync();
+        }
+
         public async Task<DrinkTask?> GetDrinkTaskByIdAsync(Guid id)
         {
             return await _context.DrinkTasks.FindAsync(id);

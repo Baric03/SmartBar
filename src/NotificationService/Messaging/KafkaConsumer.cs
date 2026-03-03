@@ -100,7 +100,7 @@ namespace NotificationService.Messaging
                 Id = Guid.NewGuid(),
                 OrderId = orderEvent.OrderId,
                 Message = $"Order created at table {orderEvent.TableNum} for items: {orderEvent.Items}",
-                SentAt = DateTime.UtcNow
+                SentAt = DateTime.Now
             };
             
             await notificationService.CreateLogAsync(log);
@@ -118,7 +118,7 @@ namespace NotificationService.Messaging
                 Id = Guid.NewGuid(),
                 OrderId = drinkEvent.OrderId,
                 Message = $"Drink {drinkEvent.DrinkName} is ready for order {drinkEvent.OrderId}",
-                SentAt = DateTime.UtcNow
+                SentAt = DateTime.Now
             };
             
             await notificationService.CreateLogAsync(log);

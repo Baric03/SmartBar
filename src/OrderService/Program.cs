@@ -25,6 +25,7 @@ builder.Services.AddHealthChecks();
 // Register Services
 builder.Services.AddScoped<IOrderService, OrderManagementService>();
 builder.Services.AddSingleton<OrderService.Messaging.IKafkaProducer, OrderService.Messaging.KafkaProducer>();
+builder.Services.AddHostedService<OrderService.Messaging.KafkaConsumer>();
 
 builder.Services.AddGrpcClient<InventoryService.Protos.InventoryGrpcConfig.InventoryGrpcConfigClient>(o =>
 {

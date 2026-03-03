@@ -1,6 +1,6 @@
 using System;
 
-namespace BarService.Events
+namespace OrderService.Events
 {
     public class DrinkReadyEvent
     {
