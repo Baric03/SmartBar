@@ -15,10 +15,14 @@ namespace OrderService.Messaging
     /// <summary>
     /// Background worker that consumes drink-ready events from Kafka.
     /// When a drink is marked as ready in BarService, this consumer updates
-    /// the corresponding order's status to "Ready" in the OrderService database.
+    /// the corresponding order's status using 3-state logic:
+    /// Pending → In Process → Ready.
     /// </summary>
     public class KafkaConsumer : BackgroundService
     {
+        private const string Topic = "drink-ready-events";
+        private const string ConsumerGroup = "order-service-group";
+
         private readonly IConfiguration _configuration;
         private readonly ILogger<KafkaConsumer> _logger;
         private readonly IServiceProvider _serviceProvider;
@@ -30,76 +34,96 @@ namespace OrderService.Messaging
             _serviceProvider = serviceProvider;
         }
 
-        /// <summary>
-        /// Main execution loop. Listens for "drink-ready-events" topic and
-        /// updates the order status to "Ready" when a drink is completed.
-        /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
-            var groupId = "order-service-group";
+            using var consumer = BuildConsumer();
+            consumer.Subscribe(Topic);
+            _logger.LogInformation("OrderService Kafka consumer started, listening on topic: {Topic}", Topic);
 
-            var config = new ConsumerConfig
+            await ConsumeLoop(consumer, stoppingToken);
+        }
+
+        /// <summary>
+        /// Builds a configured Kafka consumer instance using application settings.
+        /// </summary>
+        private IConsumer<string, string> BuildConsumer()
+        {
+            var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
+
+            return new ConsumerBuilder<string, string>(new ConsumerConfig
             {
                 BootstrapServers = bootstrapServers,
-                GroupId = groupId,
-                AutoOffsetReset = AutoOffsetReset.Earliest
-            };
+                GroupId = ConsumerGroup,
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+                EnableAutoCommit = true
+            }).Build();
+        }
 
-            using var consumer = new ConsumerBuilder<string, string>(config).Build();
-            consumer.Subscribe("drink-ready-events");
-
+        /// <summary>
+        /// Main consume loop that reads messages and delegates processing.
+        /// Continues until cancellation is requested.
+        /// </summary>
+        private async Task ConsumeLoop(IConsumer<string, string> consumer, CancellationToken stoppingToken)
+        {
             try
             {
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    try
-                    {
-                        var consumeResult = consumer.Consume(stoppingToken);
-
-                        if (consumeResult?.Message != null)
-                        {
-                            var drinkEvent = JsonSerializer.Deserialize<DrinkReadyEvent>(consumeResult.Message.Value);
-                            if (drinkEvent != null)
-                            {
-                                await ProcessDrinkReadyEvent(drinkEvent);
-                            }
-                        }
-                    }
-                    catch (ConsumeException e)
-                    {
-                        _logger.LogError("Consume error: {Reason}", e.Error.Reason);
-                    }
+                    await ConsumeNext(consumer, stoppingToken);
                 }
             }
             catch (OperationCanceledException)
             {
+                _logger.LogInformation("OrderService Kafka consumer shutting down gracefully.");
                 consumer.Close();
             }
         }
 
-        private async Task ProcessDrinkReadyEvent(DrinkReadyEvent drinkEvent)
+        /// <summary>
+        /// Consumes a single message from Kafka and processes it.
+        /// </summary>
+        private async Task ConsumeNext(IConsumer<string, string> consumer, CancellationToken stoppingToken)
+        {
+            try
+            {
+                var result = consumer.Consume(stoppingToken);
+                if (result?.Message?.Value == null) return;
+
+                var drinkEvent = JsonSerializer.Deserialize<DrinkReadyEvent>(result.Message.Value);
+                if (drinkEvent != null)
+                {
+                    await UpdateOrderStatus(drinkEvent);
+                }
+            }
+            catch (ConsumeException e)
+            {
+                _logger.LogError("Kafka consume error: {Reason}", e.Error.Reason);
+            }
+        }
+
+        /// <summary>
+        /// Updates the order status based on the drink-ready event.
+        /// If all drinks are ready, status becomes "Ready"; otherwise "In Process".
+        /// </summary>
+        private async Task UpdateOrderStatus(DrinkReadyEvent drinkEvent)
         {
             _logger.LogInformation(
-                "OrderService received drink-ready event: {DrinkName} for order {OrderId}",
-                drinkEvent.DrinkName, drinkEvent.OrderId);
+                "Received drink-ready event: {DrinkName} for order {OrderId} (AllReady: {AllReady})",
+                drinkEvent.DrinkName, drinkEvent.OrderId, drinkEvent.AllDrinksReady);
 
             using var scope = _serviceProvider.CreateScope();
             var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
 
             var order = await orderService.GetOrderByIdAsync(drinkEvent.OrderId);
-            if (order != null)
+            if (order == null)
             {
-                // Use 3-status logic: Pending → In Process → Ready
-                order.Status = drinkEvent.AllDrinksReady ? "Ready" : "In Process";
-                await orderService.UpdateOrderAsync(order);
-                _logger.LogInformation("Order {OrderId} status updated to {Status}.",
-                    drinkEvent.OrderId, order.Status);
+                _logger.LogWarning("Order {OrderId} not found for drink-ready event.", drinkEvent.OrderId);
+                return;
             }
-            else
-            {
-                _logger.LogWarning("Order {OrderId} not found when processing drink-ready event.", drinkEvent.OrderId);
-            }
+
+            order.Status = drinkEvent.AllDrinksReady ? "Ready" : "In Process";
+            await orderService.UpdateOrderAsync(order);
+            _logger.LogInformation("Order {OrderId} status updated to {Status}.", drinkEvent.OrderId, order.Status);
         }
     }
 }

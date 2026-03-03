@@ -17,8 +17,10 @@ namespace InventoryService.Data
                     new Stock { Id = Guid.NewGuid(), Ingredient = "Espresso", Quantity = 100 },
                     new Stock { Id = Guid.NewGuid(), Ingredient = "Milk", Quantity = 200 },
                     new Stock { Id = Guid.NewGuid(), Ingredient = "Water", Quantity = 500 },
-                    new Stock { Id = Guid.NewGuid(), Ingredient = "Sugar", Quantity = 50 },
-                    new Stock { Id = Guid.NewGuid(), Ingredient = "Syrup", Quantity = 20 }
+                    new Stock { Id = Guid.NewGuid(), Ingredient = "Juice", Quantity = 50 },
+                    new Stock { Id = Guid.NewGuid(), Ingredient = "Syrup", Quantity = 25 },
+                    new Stock { Id = Guid.NewGuid(), Ingredient = "Tea", Quantity = 300 },
+                    new Stock { Id = Guid.NewGuid(), Ingredient = "Hot Chocolate", Quantity = 50 }
                 );
 
                 context.SaveChanges();
