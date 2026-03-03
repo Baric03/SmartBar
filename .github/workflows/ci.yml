@@ -62,7 +62,11 @@ jobs:
 
   # ===========================================================================
   # Job 2: SonarCloud Static Code Analysis
-  # Runs the dotnet-sonarscanner to analyze code quality and security.
+  # Runs the dotnet-sonarscanner to continuously inspect code quality.
+  # This automated tool statically analyzes the codebase and checks for:
+  #   - Code Smells (Maintainability issues)
+  #   - Potential Bugs (Reliability issues)
+  #   - Security Issues / Vulnerabilities (Security hotspots)
   # Uses SonarCloud's official recommended configuration for .NET.
   # Requires SONAR_TOKEN secret to be configured in GitHub repo settings.
   # ===========================================================================

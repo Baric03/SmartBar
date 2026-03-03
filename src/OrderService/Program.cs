@@ -79,7 +79,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
-    // Swagger UI is available at: https://localhost:7224/swagger
+    // Swagger UI is available at: http://localhost:7224/swagger
     app.UseSwaggerUI();
 }
 
