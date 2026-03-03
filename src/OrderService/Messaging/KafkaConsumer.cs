@@ -1,7 +1,4 @@
-using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using OrderService.Core.Interfaces;
 using OrderService.Events;
 using Confluent.Kafka;
@@ -23,15 +20,15 @@ namespace OrderService.Messaging
         private const string Topic = "drink-ready-events";
         private const string ConsumerGroup = "order-service-group";
 
-        private readonly IConfiguration _configuration;
         private readonly ILogger<KafkaConsumer> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private readonly string _bootstrapServers;
 
         public KafkaConsumer(IConfiguration configuration, ILogger<KafkaConsumer> logger, IServiceProvider serviceProvider)
         {
-            _configuration = configuration;
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _bootstrapServers = configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -48,11 +45,9 @@ namespace OrderService.Messaging
         /// </summary>
         private IConsumer<string, string> BuildConsumer()
         {
-            var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
-
             return new ConsumerBuilder<string, string>(new ConsumerConfig
             {
-                BootstrapServers = bootstrapServers,
+                BootstrapServers = _bootstrapServers,
                 GroupId = ConsumerGroup,
                 AutoOffsetReset = AutoOffsetReset.Earliest,
                 EnableAutoCommit = true
@@ -97,7 +92,7 @@ namespace OrderService.Messaging
             }
             catch (ConsumeException e)
             {
-                _logger.LogError("Kafka consume error: {Reason}", e.Error.Reason);
+                _logger.LogError(e, "Kafka consume error: {Reason}", e.Error.Reason);
             }
         }
 

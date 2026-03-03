@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -38,8 +37,8 @@ namespace NotificationService.UnitTests
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnLogs = Assert.IsAssignableFrom<IEnumerable<Log>>(okResult.Value);
-            Assert.Equal(2, returnLogs.Count());
+            var returnLogs = Assert.IsType<List<Log>>(okResult.Value);
+            Assert.Equal(2, returnLogs.Count);
         }
 
         [Fact]
@@ -90,8 +89,8 @@ namespace NotificationService.UnitTests
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnLogs = Assert.IsAssignableFrom<IEnumerable<Log>>(okResult.Value);
-            Assert.Equal(2, returnLogs.Count());
+            var returnLogs = Assert.IsType<List<Log>>(okResult.Value);
+            Assert.Equal(2, returnLogs.Count);
         }
     }
 }

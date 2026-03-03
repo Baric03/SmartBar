@@ -11,6 +11,7 @@ namespace InventoryService.Models
         [MaxLength(100)]
         public string Ingredient { get; set; } = string.Empty;
 
+        [Required]
         public int Quantity { get; set; }
     }
 }

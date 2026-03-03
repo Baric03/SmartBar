@@ -1,7 +1,4 @@
-using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using NotificationService.Core.Interfaces;
 using NotificationService.Events;
 using NotificationService.Models;
@@ -19,15 +16,17 @@ namespace NotificationService.Messaging
     /// </summary>
     public class KafkaConsumer : BackgroundService
     {
-        private readonly IConfiguration _configuration;
+        private static readonly string[] Topics = ["order-events", "drink-ready-events"];
+
         private readonly ILogger<KafkaConsumer> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private readonly string _bootstrapServers;
 
         public KafkaConsumer(IConfiguration configuration, ILogger<KafkaConsumer> logger, IServiceProvider serviceProvider)
         {
-            _configuration = configuration;
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _bootstrapServers = configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
         }
 
         /// <summary>
@@ -35,51 +34,21 @@ namespace NotificationService.Messaging
         /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
-            var groupId = "notification-service-group";
-
             var config = new ConsumerConfig
             {
-                BootstrapServers = bootstrapServers,
-                GroupId = groupId,
+                BootstrapServers = _bootstrapServers,
+                GroupId = "notification-service-group",
                 AutoOffsetReset = AutoOffsetReset.Earliest
             };
 
             using var consumer = new ConsumerBuilder<string, string>(config).Build();
-            consumer.Subscribe(new[] { "order-events", "drink-ready-events" });
+            consumer.Subscribe(Topics);
 
             try
             {
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    try
-                    {
-                        var consumeResult = consumer.Consume(stoppingToken);
-
-                        if (consumeResult != null && consumeResult.Message != null)
-                        {
-                            if (consumeResult.Topic == "order-events")
-                            {
-                                var orderEvent = JsonSerializer.Deserialize<OrderCreatedEvent>(consumeResult.Message.Value);
-                                if (orderEvent != null)
-                                {
-                                    await ProcessNotificationEvent(orderEvent);
-                                }
-                            }
-                            else if (consumeResult.Topic == "drink-ready-events")
-                            {
-                                var drinkEvent = JsonSerializer.Deserialize<DrinkReadyEvent>(consumeResult.Message.Value);
-                                if (drinkEvent != null)
-                                {
-                                    await ProcessDrinkReadyEvent(drinkEvent);
-                                }
-                            }
-                        }
-                    }
-                    catch (ConsumeException e)
-                    {
-                        _logger.LogError($"Consume error: {e.Error.Reason}");
-                    }
+                    await ConsumeNext(consumer, stoppingToken);
                 }
             }
             catch (OperationCanceledException)
@@ -88,13 +57,47 @@ namespace NotificationService.Messaging
             }
         }
 
+        /// <summary>
+        /// Consumes a single message from Kafka and routes it to the correct handler.
+        /// </summary>
+        private async Task ConsumeNext(IConsumer<string, string> consumer, CancellationToken stoppingToken)
+        {
+            try
+            {
+                var consumeResult = consumer.Consume(stoppingToken);
+
+                if (consumeResult?.Message == null) return;
+
+                if (consumeResult.Topic == "order-events")
+                {
+                    var orderEvent = JsonSerializer.Deserialize<OrderCreatedEvent>(consumeResult.Message.Value);
+                    if (orderEvent != null)
+                    {
+                        await ProcessNotificationEvent(orderEvent);
+                    }
+                }
+                else if (consumeResult.Topic == "drink-ready-events")
+                {
+                    var drinkEvent = JsonSerializer.Deserialize<DrinkReadyEvent>(consumeResult.Message.Value);
+                    if (drinkEvent != null)
+                    {
+                        await ProcessDrinkReadyEvent(drinkEvent);
+                    }
+                }
+            }
+            catch (ConsumeException e)
+            {
+                _logger.LogError(e, "Consume error: {Reason}", e.Error.Reason);
+            }
+        }
+
         private async Task ProcessNotificationEvent(OrderCreatedEvent orderEvent)
         {
-            _logger.LogInformation($"NotificationService received order: {orderEvent.OrderId} at table {orderEvent.TableNum}");
-            
+            _logger.LogInformation("NotificationService received order: {OrderId} at table {TableNum}", orderEvent.OrderId, orderEvent.TableNum);
+
             using var scope = _serviceProvider.CreateScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-            
+
             var log = new Log
             {
                 Id = Guid.NewGuid(),
@@ -102,17 +105,17 @@ namespace NotificationService.Messaging
                 Message = $"Order created at table {orderEvent.TableNum} for items: {orderEvent.Items}",
                 SentAt = DateTime.Now
             };
-            
+
             await notificationService.CreateLogAsync(log);
         }
 
         private async Task ProcessDrinkReadyEvent(DrinkReadyEvent drinkEvent)
         {
-            _logger.LogInformation($"NotificationService received drink ready: {drinkEvent.DrinkName} for order {drinkEvent.OrderId}");
-            
+            _logger.LogInformation("NotificationService received drink ready: {DrinkName} for order {OrderId}", drinkEvent.DrinkName, drinkEvent.OrderId);
+
             using var scope = _serviceProvider.CreateScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-            
+
             var log = new Log
             {
                 Id = Guid.NewGuid(),
@@ -120,7 +123,7 @@ namespace NotificationService.Messaging
                 Message = $"Drink {drinkEvent.DrinkName} is ready for order {drinkEvent.OrderId}",
                 SentAt = DateTime.Now
             };
-            
+
             await notificationService.CreateLogAsync(log);
         }
     }

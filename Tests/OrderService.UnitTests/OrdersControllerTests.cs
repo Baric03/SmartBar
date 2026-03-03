@@ -42,8 +42,8 @@ namespace OrderService.UnitTests
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnedOrders = Assert.IsAssignableFrom<IEnumerable<Order>>(okResult.Value);
-            Assert.Equal(2, ((List<Order>)returnedOrders).Count);
+            var returnedOrders = Assert.IsType<List<Order>>(okResult.Value);
+            Assert.Equal(2, returnedOrders.Count);
         }
 
         [Fact]

@@ -1,9 +1,6 @@
-using System;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using BarService.Core.Interfaces;
 using BarService.Events;
 using BarService.Models;
@@ -23,9 +20,9 @@ namespace BarService.Messaging
     /// </summary>
     public class KafkaConsumer : BackgroundService
     {
-        private readonly IConfiguration _configuration;
         private readonly ILogger<KafkaConsumer> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private readonly string _bootstrapServers;
 
         /// <summary>
         /// Reactive subject that bridges Kafka consumption into the Rx world.
@@ -35,9 +32,9 @@ namespace BarService.Messaging
 
         public KafkaConsumer(IConfiguration configuration, ILogger<KafkaConsumer> logger, IServiceProvider serviceProvider)
         {
-            _configuration = configuration;
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _bootstrapServers = configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
         }
 
         /// <summary>
@@ -46,28 +43,46 @@ namespace BarService.Messaging
         /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
-            var groupId = "bar-service-group";
-
             var config = new ConsumerConfig
             {
-                BootstrapServers = bootstrapServers,
-                GroupId = groupId,
+                BootstrapServers = _bootstrapServers,
+                GroupId = "bar-service-group",
                 AutoOffsetReset = AutoOffsetReset.Earliest
             };
 
-            // --- Reactive Pipeline Setup ---
-            // Buffer incoming order events in 3-second windows for batch logging,
-            // then process each event individually with error resilience.
-            var subscription = _orderEventSubject
+            var subscription = SetupReactivePipeline();
+
+            using var consumer = new ConsumerBuilder<string, string>(config).Build();
+            consumer.Subscribe("order-events");
+
+            try
+            {
+                await ConsumeLoop(consumer, stoppingToken);
+            }
+            finally
+            {
+                // Signal the reactive pipeline that no more events will arrive
+                _orderEventSubject.OnCompleted();
+                subscription.Dispose();
+                _orderEventSubject.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Sets up the reactive pipeline that buffers and processes order events.
+        /// </summary>
+        private IDisposable SetupReactivePipeline()
+        {
+            return _orderEventSubject
                 .Buffer(TimeSpan.FromSeconds(3))
                 .Where(batch => batch.Count > 0)
                 .Subscribe(
                     batch =>
                     {
+                        var batchCount = batch.Count;
                         _logger.LogInformation(
                             "[Rx] Processing batch of {Count} order event(s) received in the last 3s window.",
-                            batch.Count);
+                            batchCount);
 
                         foreach (var orderEvent in batch)
                         {
@@ -84,51 +99,53 @@ namespace BarService.Messaging
                         }
 
                         _logger.LogInformation(
-                            "[Rx] Batch complete — {Count} order(s) processed successfully.", batch.Count);
+                            "[Rx] Batch complete — {Count} order(s) processed successfully.", batchCount);
                     },
                     error => _logger.LogError(error, "[Rx] Fatal error in reactive pipeline."),
                     () => _logger.LogInformation("[Rx] Reactive order pipeline completed.")
                 );
+        }
 
-            // --- Kafka Consumption Loop ---
-            // Raw Kafka messages are consumed here and pushed into the reactive subject.
-            using var consumer = new ConsumerBuilder<string, string>(config).Build();
-            consumer.Subscribe("order-events");
-
+        /// <summary>
+        /// Main consume loop that reads messages from Kafka and pushes them to the reactive pipeline.
+        /// </summary>
+        private async Task ConsumeLoop(IConsumer<string, string> consumer, CancellationToken stoppingToken)
+        {
             try
             {
                 while (!stoppingToken.IsCancellationRequested)
                 {
-                    try
-                    {
-                        var consumeResult = consumer.Consume(stoppingToken);
-
-                        if (consumeResult?.Message != null)
-                        {
-                            var orderEvent = JsonSerializer.Deserialize<OrderCreatedEvent>(consumeResult.Message.Value);
-                            if (orderEvent != null)
-                            {
-                                // Push event into the reactive stream instead of processing directly
-                                _orderEventSubject.OnNext(orderEvent);
-                            }
-                        }
-                    }
-                    catch (ConsumeException e)
-                    {
-                        _logger.LogError("Consume error: {Reason}", e.Error.Reason);
-                    }
+                    ConsumeNext(consumer, stoppingToken);
+                    await Task.CompletedTask;
                 }
             }
             catch (OperationCanceledException)
             {
                 consumer.Close();
             }
-            finally
+        }
+
+        /// <summary>
+        /// Consumes a single message from Kafka and pushes it into the reactive stream.
+        /// </summary>
+        private void ConsumeNext(IConsumer<string, string> consumer, CancellationToken stoppingToken)
+        {
+            try
             {
-                // Signal the reactive pipeline that no more events will arrive
-                _orderEventSubject.OnCompleted();
-                subscription.Dispose();
-                _orderEventSubject.Dispose();
+                var consumeResult = consumer.Consume(stoppingToken);
+
+                if (consumeResult?.Message != null)
+                {
+                    var orderEvent = JsonSerializer.Deserialize<OrderCreatedEvent>(consumeResult.Message.Value);
+                    if (orderEvent != null)
+                    {
+                        _orderEventSubject.OnNext(orderEvent);
+                    }
+                }
+            }
+            catch (ConsumeException e)
+            {
+                _logger.LogError(e, "Consume error: {Reason}", e.Error.Reason);
             }
         }
 
