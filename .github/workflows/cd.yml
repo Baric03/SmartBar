@@ -1,0 +1,37 @@
+name: Render CD Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-to-render:
+    name: Trigger Render Deploy Hook
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger Web Service Deployment
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          curl -X POST "$RENDER_DEPLOY_HOOK_URL"
+
+      - name: Verify Post-Deployment Correctness
+        env:
+          RENDER_PUBLIC_URL: ${{ secrets.RENDER_PUBLIC_URL }}
+        run: |
+          echo "Waiting for Render to build and deploy the application..."
+          # Render typically takes a minute or two to deploy a new container
+          sleep 90 
+          
+          echo "Checking application health endpoint..."
+          # The RENDER_PUBLIC_URL must be defined in your GitHub Repo Secrets as well. 
+          # Example: https://smartbar.onrender.com
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$RENDER_PUBLIC_URL/health")
+          
+          if [ "$HTTP_STATUS" == "200" ]; then
+            echo "Deployment successful! Service is healthy and responding with 200 OK."
+          else
+            echo "Deployment correctness check failed! Expected 200 OK but got $HTTP_STATUS."
+            exit 1
+          fi
