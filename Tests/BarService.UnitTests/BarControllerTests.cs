@@ -39,8 +39,8 @@ namespace BarService.UnitTests
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnTasks = Assert.IsAssignableFrom<IEnumerable<DrinkTask>>(okResult.Value);
-            Assert.Equal(2, ((List<DrinkTask>)returnTasks).Count);
+            var returnTasks = Assert.IsType<List<DrinkTask>>(okResult.Value);
+            Assert.Equal(2, returnTasks.Count);
         }
 
         [Fact]

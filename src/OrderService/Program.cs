@@ -33,8 +33,10 @@ builder.Services.AddGrpcClient<InventoryService.Protos.InventoryGrpcConfig.Inven
 }).ConfigurePrimaryHttpMessageHandler(() =>
 {
     var handler = new HttpClientHandler();
-    handler.ServerCertificateCustomValidationCallback = 
-        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+    if (!builder.Environment.IsProduction())
+    {
+        handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+    }
     return handler;
 });
 
@@ -87,4 +89,4 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.MapHealthChecks("/health");
 
-app.Run();
+await app.RunAsync();

@@ -71,4 +71,4 @@ app.MapControllers();
 app.MapGrpcService<InventoryGrpcService>();
 app.MapHealthChecks("/health");
 
-app.Run();
+await app.RunAsync();

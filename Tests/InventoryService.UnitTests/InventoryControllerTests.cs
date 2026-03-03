@@ -37,8 +37,8 @@ namespace InventoryService.UnitTests
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnStocks = Assert.IsAssignableFrom<IEnumerable<Stock>>(okResult.Value);
-            Assert.Equal(2, ((List<Stock>)returnStocks).Count);
+            var returnStocks = Assert.IsType<List<Stock>>(okResult.Value);
+            Assert.Equal(2, returnStocks.Count);
         }
 
         [Fact]

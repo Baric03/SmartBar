@@ -37,4 +37,4 @@ app.UseSwaggerUI(c =>
 app.MapHealthChecks("/health");
 app.MapReverseProxy();
 
-app.Run();
+await app.RunAsync();

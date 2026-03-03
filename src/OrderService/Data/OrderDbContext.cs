@@ -10,12 +10,5 @@ namespace OrderService.Data
         }
 
         public DbSet<Order> Orders { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-            
-            // Configuration for the Order entity if needed
-        }
     }
 }
