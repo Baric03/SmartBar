@@ -29,15 +29,8 @@ builder.Services.AddHostedService<OrderService.Messaging.KafkaConsumer>();
 
 builder.Services.AddGrpcClient<InventoryService.Protos.InventoryGrpcConfig.InventoryGrpcConfigClient>(o =>
 {
-    o.Address = new Uri(builder.Configuration["GrpcUrls:InventoryService"] ?? "https://localhost:7042");
-}).ConfigurePrimaryHttpMessageHandler(() =>
-{
-    var handler = new HttpClientHandler();
-    if (!builder.Environment.IsProduction())
-    {
-        handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
-    }
-    return handler;
+    o.Address = new Uri(builder.Configuration["GrpcUrls:InventoryService"]
+        ?? throw new InvalidOperationException("GrpcUrls:InventoryService configuration is required."));
 });
 
 // --- OpenTelemetry Configuration ---

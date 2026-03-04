@@ -119,8 +119,9 @@ namespace BarService.Messaging
                     await Task.CompletedTask;
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                _logger.LogInformation(ex, "BarService Kafka consumer shutting down gracefully.");
                 consumer.Close();
             }
         }
