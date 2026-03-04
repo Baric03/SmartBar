@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # --- Infrastructure: Kafka & Zookeeper ---
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.3.2
     container_name: smartbar-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -12,7 +12,7 @@ services:
       - smartbar-network
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.3.2
     container_name: smartbar-kafka
     depends_on:
       - zookeeper
@@ -26,6 +26,28 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: [ "CMD-SHELL", "nc -z localhost 9092 || exit 1" ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - smartbar-network
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: smartbar-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' && \
+        cub kafka-ready -b kafka:9092 1 30 && \
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic order-events && \
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1 --topic drink-ready-events && \
+        echo 'Topics created successfully.'
+      "
     networks:
       - smartbar-network
 
@@ -37,9 +59,203 @@ services:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: barpassword123
     ports:
-      - "5432:5432"
+      - "5455:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - smartbar-network
+
+  # --- Microservices ---
+  inventory-service:
+    build:
+      context: .
+      dockerfile: src/InventoryService/Dockerfile
+    container_name: smartbar-inventory-service
+    ports:
+      - "7042:8080"
+      - "7043:8081"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=InventoryDb;Username=admin;Password=barpassword123
+      - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
+      - Kestrel__Endpoints__http__Url=http://+:8080
+      - Kestrel__Endpoints__http__Protocols=Http1AndHttp2
+      - Kestrel__Endpoints__grpc__Url=http://+:8081
+      - Kestrel__Endpoints__grpc__Protocols=Http2
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      smartbar-db:
+        condition: service_healthy
+    networks:
+      - smartbar-network
+
+  order-service:
+    build:
+      context: .
+      dockerfile: src/OrderService/Dockerfile
+    container_name: smartbar-order-service
+    ports:
+      - "7224:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=OrderDb;Username=admin;Password=barpassword123
+      - GrpcUrls__InventoryService=http://smartbar-inventory-service:8081
+      - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
+      - Kafka__BootstrapServers=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      smartbar-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      inventory-service:
+        condition: service_healthy
+    networks:
+      - smartbar-network
+
+  bar-service:
+    build:
+      context: .
+      dockerfile: src/BarService/Dockerfile
+    container_name: smartbar-bar-service
+    ports:
+      - "7026:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=BarDb;Username=admin;Password=barpassword123
+      - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
+      - Kafka__BootstrapServers=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      smartbar-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - smartbar-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: src/NotificationService/Dockerfile
+    container_name: smartbar-notification-service
+    ports:
+      - "7081:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=smartbar-postgres;Port=5432;Database=NotificationDb;Username=admin;Password=barpassword123
+      - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
+      - Kafka__BootstrapServers=kafka:9092
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      smartbar-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - smartbar-network
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+    container_name: smartbar-api-gateway
+    ports:
+      - "8000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=Europe/Belgrade
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      order-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      bar-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    networks:
+      - smartbar-network
+
+  # --- Monitoring: Prometheus & Grafana ---
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: smartbar-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - order-service
+      - inventory-service
+      - bar-service
+      - notification-service
+    networks:
+      - smartbar-network
+
+  grafana:
+    image: grafana/grafana:10.3.3
+    container_name: smartbar-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=smartbar
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - smartbar-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.55
+    container_name: smartbar-jaeger
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
     networks:
       - smartbar-network
 
@@ -49,3 +265,4 @@ networks:
 
 volumes:
   db-data:
+  grafana-data:
