@@ -9,8 +9,20 @@ name: SmartBar CI
 on:
   push:
     branches: [main, dev]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - '.dockerignore'
+      - 'LICENSE'
+      - '.github/workflows/cd.yml'
   pull_request:
     branches: [main, dev]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
 
 jobs:
   # ===========================================================================
