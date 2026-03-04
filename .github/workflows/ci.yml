@@ -1,7 +1,9 @@
 # =============================================================================
 # SmartBar CI Pipeline
 # Triggers on every push/PR to main and dev branches.
-# Jobs: Build → Test → SonarCloud Analysis → Docker Image Build
+# On main: always runs (required checks must never be skipped).
+# On dev:  skips when only docs/config files changed.
+# Jobs: Pre-Check → Build → Test → SonarCloud Analysis → Docker Image Build
 # =============================================================================
 
 name: SmartBar CI
@@ -9,22 +11,66 @@ name: SmartBar CI
 on:
   push:
     branches: [main, dev]
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - '.gitignore'
-      - '.dockerignore'
-      - 'LICENSE'
-      - '.github/workflows/cd.yml'
   pull_request:
     branches: [main, dev]
-    paths-ignore:
-      - '*.md'
-      - 'docs/**'
-      - '.gitignore'
-      - 'LICENSE'
+
 
 jobs:
+  # ===========================================================================
+  # Job 0: Pre-Check
+  # Determines whether the pipeline should run.
+  # On main: always runs (required status checks must not be skipped).
+  # On dev:  skips when only documentation or config files changed.
+  # ===========================================================================
+  pre-check:
+    name: Pre-Check
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine if pipeline should run
+        id: check
+        run: |
+          # Resolve which branch this workflow is running against
+          BRANCH="${{ github.base_ref }}"          # set on PRs (target branch)
+          if [ -z "$BRANCH" ]; then
+            BRANCH="${{ github.ref_name }}"         # set on pushes
+          fi
+
+          echo "Branch: $BRANCH"
+
+          # Always run on main — required checks must never be skipped
+          if [ "$BRANCH" = "main" ]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            echo "Main branch — pipeline will run."
+            exit 0
+          fi
+
+          # On dev, check whether any meaningful (non-docs) files changed
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          MEANINGFUL_CHANGES=$(git diff --name-only $BASE_SHA ${{ github.sha }} \
+            | grep -v -E '(\.md$|^docs/|^\.gitignore$|^\.dockerignore$|^LICENSE$|^\.github/workflows/cd\.yml$)' || true)
+
+          if [ -z "$MEANINGFUL_CHANGES" ]; then
+            echo "should-run=false" >> $GITHUB_OUTPUT
+            echo "Only docs/config changed on dev — skipping pipeline."
+          else
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            echo "Meaningful changes detected — pipeline will run."
+            echo "$MEANINGFUL_CHANGES"
+          fi
+
   # ===========================================================================
   # Job 1: Build & Test
   # Restores, builds, and runs all unit tests. Produces test results as artifacts.
@@ -32,6 +78,8 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    needs: pre-check
+    if: needs.pre-check.outputs.should-run == 'true'
 
     steps:
       - name: Checkout code
@@ -85,7 +133,8 @@ jobs:
   sonar-analysis:
     name: SonarCloud Analysis
     runs-on: windows-latest
-    needs: build-and-test
+    needs: [pre-check, build-and-test]
+    if: needs.pre-check.outputs.should-run == 'true'
 
     steps:
       - name: Set up JDK 17
