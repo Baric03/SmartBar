@@ -67,9 +67,9 @@ namespace OrderService.Messaging
                     await ConsumeNext(consumer, stoppingToken);
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
-                _logger.LogInformation("OrderService Kafka consumer shutting down gracefully.");
+                _logger.LogInformation(ex, "OrderService Kafka consumer shutting down gracefully.");
                 consumer.Close();
             }
         }

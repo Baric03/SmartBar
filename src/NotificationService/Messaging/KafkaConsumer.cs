@@ -51,8 +51,9 @@ namespace NotificationService.Messaging
                     await ConsumeNext(consumer, stoppingToken);
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
+                _logger.LogInformation(ex, "NotificationService Kafka consumer shutting down gracefully.");
                 consumer.Close();
             }
         }
